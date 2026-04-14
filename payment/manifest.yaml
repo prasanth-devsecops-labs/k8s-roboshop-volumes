@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payment
+  namespace: roboshop
+  labels:
+    project: roboshop
+    tier: backend
+    component: payment
+data:
+  CART_HOST: "cart"
+  CART_PORT: "8080"
+  USER_HOST: "user"
+  USER_PORT: "8080"
+  AMQP_HOST: "rabbitmq"
+  AMQP_USER: "roboshop"
+  AMQP_PASS: "roboshop123"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment
+  namespace: roboshop
+  # Labels for the Deployment object itself
+  labels:
+    project: roboshop
+    tier: backend
+    component: payment
+spec:
+  replicas: 1
+  selector:
+    # The Deployment uses these to find and manage its Pods
+    matchLabels:
+      project: roboshop
+      tier: backend
+      component: payment
+  # Template defines the Pods that will be created
+  template:
+    metadata:
+      # These MUST match the 'selector' labels above
+      labels:
+        project: roboshop
+        tier: backend
+        component: payment
+    spec:
+      containers:
+      - name: payment
+        image: prasanthreddymps/payment:1.0.0
+        imagePullPolicy: Always # safe to pull everytime
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "100m"
+            memory: "128Mi"
+        readinessProbe:
+          # httpGet:
+          #   path: /health
+          #   port: 8080
+          tcpSocket:
+            port: 8080
+          failureThreshold: 2
+          periodSeconds: 10
+          initialDelaySeconds: 15
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          failureThreshold: 2
+          periodSeconds: 10
+        envFrom:
+        - configMapRef:
+            name: payment
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment
+  namespace: roboshop
+spec:
+  selector:
+    # labels are used as selectors
+    project: roboshop
+    tier: backend
+    component: payment
+  ports:
+  - protocol: TCP
+    port: 8080 # servie port
+    targetPort: 8080 # container port
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: payment
+  namespace: roboshop
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: payment
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 20
+
