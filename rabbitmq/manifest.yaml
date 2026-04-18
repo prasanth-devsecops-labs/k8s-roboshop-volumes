@@ -1,4 +1,17 @@
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rabbitmq
+  namespace: roboshop
+  labels:
+    project: roboshop
+    tier: db
+    component: rabbitmq
+data:
+    RABBITMQ_DEFAULT_USER: roboshop
+    RABBITMQ_DEFAULT_PASS: roboshop123
+---
+apiVersion: v1
 kind: Service # to know other nodes ip in cluster for data replication
 metadata:
   name: rabbitmq-headless
@@ -51,6 +64,9 @@ spec:
         volumeMounts:
         - name: rabbitmq
           mountPath: /var/lib/rabbitmq
+        envFrom:
+        - configMapRef:
+            name: rabbitmq
   # PVC
   volumeClaimTemplates:
   - metadata:
